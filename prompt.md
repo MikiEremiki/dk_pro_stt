@@ -123,7 +123,7 @@
 - **ASR**: OpenAI Whisper / Faster-Whisper
 - **Диаризация**: pyannote.audio
 - **Audio**: ffmpeg-python, librosa
-- **База данных**: PostgreSQL 16 (основная БД), sqlalchemy, asyncpg
+- **База данных**: PostgreSQL 16 (основная БД), sqlalchemy, psycopg
 - **Кэширование**: Redis (сессии, очереди)
 - **Очереди**: NATS JetStream + FastStream
 - **Задачи**: Taskiq
