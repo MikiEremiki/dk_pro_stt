@@ -1,4 +1,4 @@
-FROM python:3.13.5-slim
+FROM python:3.13.5-slim as base
 
 WORKDIR /app
 
@@ -10,7 +10,8 @@ RUN uv pip install --system .
 
 COPY /src ./src
 
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
