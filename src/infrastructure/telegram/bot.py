@@ -1,7 +1,8 @@
+import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, BotCommandScopeChat
 
 from src.config.settings import config
 
@@ -14,6 +15,7 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="start", description="Start the bot"),
         BotCommand(command="help", description="Show help"),
     ]
+    await bot.delete_my_commands(BotCommandScopeChat(chat_id=454342281))
     await bot.set_my_commands(commands)
     await bot.send_message(chat_id=454342281, text="Bot commands are set up")
 
@@ -36,6 +38,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(main())
