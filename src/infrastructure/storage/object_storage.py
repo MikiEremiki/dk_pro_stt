@@ -1,13 +1,17 @@
 import logging
 import os
+import io
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import BinaryIO, Optional, Union
+from typing import BinaryIO, Optional, Union, Dict, Any
 from uuid import uuid4
 
 import aiofiles
-import boto3
-from botocore.exceptions import ClientError
+import nats
+from nats.js.api import ObjectStoreConfig
+from nats.js.object_store import ObjectStore
+
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -114,75 +118,116 @@ class LocalObjectStorage(ObjectStorage):
         return f"{self.base_url}/{object_name}"
 
 
-class S3ObjectStorage(ObjectStorage):
-    """S3 implementation of object storage."""
+class NatsObjectStorage(ObjectStorage):
+    """NATS JetStream implementation of object storage."""
 
-    def __init__(self, bucket_name: str, aws_access_key_id: Optional[str] = None,
-                 aws_secret_access_key: Optional[str] = None, region_name: Optional[str] = None,
-                 endpoint_url: Optional[str] = None):
+    def __init__(self, bucket_name: str = "transcription", nats_url: Optional[str] = None):
         self.bucket_name = bucket_name
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name,
-            endpoint_url=endpoint_url
-        )
-        logger.info(f"S3ObjectStorage initialized with bucket: {bucket_name}")
+        self.nats_url = nats_url or settings.NATS_URL
+        self._nc = None
+        self._js = None
+        self._object_store = None
+        logger.info(f"NatsObjectStorage initialized with bucket: {bucket_name}")
+
+    async def _ensure_connected(self) -> None:
+        """Ensure connection to NATS and initialize object store."""
+        if self._nc is None or not self._nc.is_connected:
+            self._nc = await nats.connect(self.nats_url)
+            self._js = self._nc.jetstream()
+            await self._get_or_create_object_store()
+
+    async def _get_or_create_object_store(self) -> None:
+        """Get or create the object store."""
+        try:
+            # Try to get existing object store
+            self._object_store = await self._js.object_store(self.bucket_name)
+        except Exception as e:
+            logger.debug(f"Object store {self.bucket_name} not found, creating: {e}")
+            # Create new object store if it doesn't exist
+            config = ObjectStoreConfig(
+                name=self.bucket_name,
+                storage="file",
+                max_bytes=getattr(settings, "OBJECT_STORE_MAX_BYTES", 1024 * 1024 * 1024)  # Default 1GB
+            )
+            self._object_store = await self._js.create_object_store(config)
+            logger.info(f"Created object store: {self.bucket_name}")
 
     async def upload_file(self, file_path: Union[str, Path], object_name: Optional[str] = None) -> str:
-        """Upload a file to S3 and return its URL."""
-        file_path = str(file_path)
+        """Upload a file to NATS object store and return its URL."""
+        await self._ensure_connected()
+
+        file_path = Path(file_path)
         if not object_name:
-            object_name = os.path.basename(file_path)
+            object_name = f"{uuid4()}{file_path.suffix}"
 
         try:
-            self.s3_client.upload_file(file_path, self.bucket_name, object_name)
-            logger.debug(f"Uploaded file {file_path} to S3 bucket {self.bucket_name}/{object_name}")
+            async with aiofiles.open(file_path, "rb") as file:
+                content = await file.read()
+                await self._object_store.put(object_name, content)
+
+            logger.debug(f"Uploaded file {file_path} to NATS object store {self.bucket_name}/{object_name}")
             return self.get_url(object_name)
-        except ClientError as e:
-            logger.error(f"Error uploading file to S3: {e}")
+        except Exception as e:
+            logger.error(f"Error uploading file to NATS object store: {e}")
             raise
 
     async def upload_fileobj(self, file_obj: BinaryIO, object_name: str) -> str:
-        """Upload a file-like object to S3 and return its URL."""
+        """Upload a file-like object to NATS object store and return its URL."""
+        await self._ensure_connected()
+
         try:
-            self.s3_client.upload_fileobj(file_obj, self.bucket_name, object_name)
-            logger.debug(f"Uploaded file object to S3 bucket {self.bucket_name}/{object_name}")
+            content = file_obj.read()
+            await self._object_store.put(object_name, content)
+
+            logger.debug(f"Uploaded file object to NATS object store {self.bucket_name}/{object_name}")
             return self.get_url(object_name)
-        except ClientError as e:
-            logger.error(f"Error uploading file object to S3: {e}")
+        except Exception as e:
+            logger.error(f"Error uploading file object to NATS object store: {e}")
             raise
 
     async def download_file(self, object_name: str, file_path: Union[str, Path]) -> None:
-        """Download a file from S3."""
-        file_path = str(file_path)
+        """Download a file from NATS object store."""
+        await self._ensure_connected()
+
+        file_path = Path(file_path)
+        os.makedirs(file_path.parent, exist_ok=True)
+
         try:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            self.s3_client.download_file(self.bucket_name, object_name, file_path)
-            logger.debug(f"Downloaded file from S3 bucket {self.bucket_name}/{object_name} to {file_path}")
-        except ClientError as e:
-            logger.error(f"Error downloading file from S3: {e}")
+            obj_info = await self._object_store.get(object_name)
+
+            async with aiofiles.open(file_path, "wb") as file:
+                await file.write(obj_info.data)
+
+            logger.debug(f"Downloaded file from NATS object store {self.bucket_name}/{object_name} to {file_path}")
+        except Exception as e:
+            logger.error(f"Error downloading file from NATS object store: {e}")
             raise
 
     async def get_object(self, object_name: str) -> BinaryIO:
-        """Get a file-like object from S3."""
+        """Get a file-like object from NATS object store."""
+        await self._ensure_connected()
+
         try:
-            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=object_name)
-            return response['Body']
-        except ClientError as e:
-            logger.error(f"Error getting object from S3: {e}")
+            obj_info = await self._object_store.get(object_name)
+            return io.BytesIO(obj_info.data)
+        except Exception as e:
+            logger.error(f"Error getting object from NATS object store: {e}")
             raise
 
     async def delete_object(self, object_name: str) -> None:
-        """Delete an object from S3."""
+        """Delete an object from NATS object store."""
+        await self._ensure_connected()
+
         try:
-            self.s3_client.delete_object(Bucket=self.bucket_name, Key=object_name)
-            logger.debug(f"Deleted object from S3 bucket {self.bucket_name}/{object_name}")
-        except ClientError as e:
-            logger.error(f"Error deleting object from S3: {e}")
+            await self._object_store.delete(object_name)
+            logger.debug(f"Deleted object from NATS object store {self.bucket_name}/{object_name}")
+        except Exception as e:
+            logger.error(f"Error deleting object from NATS object store: {e}")
             raise
 
     def get_url(self, object_name: str) -> str:
-        """Get the URL for an object in S3."""
-        return f"https://{self.bucket_name}.s3.amazonaws.com/{object_name}"
+        """Get the URL for an object in NATS object store."""
+        # In a real implementation, this might generate a signed URL or use a gateway
+        # For simplicity, we'll just return a path that can be used with an API endpoint
+        api_base_url = getattr(settings, "API_BASE_URL", "http://localhost:8000")
+        return f"{api_base_url}/api/v1/files/{self.bucket_name}/{object_name}"
