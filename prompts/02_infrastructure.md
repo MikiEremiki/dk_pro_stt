@@ -39,7 +39,6 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: transcription_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -50,13 +49,13 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: transcription_redis
     ports:
       - "6379:6379"
     volumes:
@@ -64,27 +63,27 @@ services:
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   nats:
-    image: nats:2.9-alpine
-    container_name: transcription_nats
+    image: nats:latest
     ports:
       - "4222:4222"  # Client connections
       - "8222:8222"  # HTTP monitoring
-    command: 
-      - "--jetstream"
-      - "--store_dir=/data"
-      - "--http_port=8222"
+    entrypoint: /nats-server
+    command: "-c server.conf"
     volumes:
       - nats_data:/data
+      - ./server.conf:/server.conf
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8222/healthz"]
-      interval: 5s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.45.0
@@ -121,7 +120,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: transcription_migration
     command: ["alembic", "upgrade", "head"]
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-transcription_db}
