@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 
 from .config.settings import config
@@ -15,8 +16,6 @@ async def root():
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         "src.main:app",
         host=config.API_HOST,
