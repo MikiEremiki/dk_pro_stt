@@ -175,7 +175,7 @@
 
 ### diarization-service
 - Model: pyannote/speaker-diarization-3.1
-- Min speaker duration: 0.5s
+- Min speaker duration: 0.5 s
 - Max speakers: автоопределение до 10 спикеров
 - Confidence threshold: 0.7
 
