@@ -183,12 +183,276 @@
 ## Domain-Driven Design структура:
 src/ 
 ├── domains/ 
-│ ├── audio/ # Audio processing domain 
-│ ├── transcription/ # ASR domain
-│ ├── diarization/ # Speaker separation domain 
-│ ├── export/ # File export domain 
-│ └── user/ # User management domain 
-├── infrastructure
+│   ├── audio/                    # Audio processing domain
+│   │   ├── __init__.py
+│   │   ├── entities/             # Бизнес-объекты
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_file.py     # AudioFile entity
+│   │   │   └── audio_format.py   # Форматы и валидация
+│   │   ├── repositories/         # Абстракции доступа к данным
+│   │   │   ├── __init__.py
+│   │   │   └── audio_repository.py
+│   │   ├── services/             # Доменные сервисы
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_converter.py
+│   │   │   └── audio_validator.py
+│   │   └── value_objects/        # Неизменяемые объекты
+│   │       ├── __init__.py
+│   │       ├── duration.py
+│   │       └── file_size.py
+│   ├── transcription/            # ASR domain
+│   │   ├── __init__.py
+│   │   ├── entities/
+│   │   │   ├── __init__.py
+│   │   │   ├── transcription.py
+│   │   │   └── transcript_segment.py
+│   │   ├── repositories/
+│   │   │   ├── __init__.py
+│   │   │   └── transcription_repository.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── whisper_service.py
+│   │   │   └── language_detector.py
+│   │   └── value_objects/
+│   │       ├── __init__.py
+│   │       ├── confidence_score.py
+│   │       └── timestamp.py
+│   ├── diarization/              # Speaker separation domain
+│   │   ├── __init__.py
+│   │   ├── entities/
+│   │   │   ├── __init__.py
+│   │   │   ├── speaker.py
+│   │   │   └── speaker_segment.py
+│   │   ├── repositories/
+│   │   │   ├── __init__.py
+│   │   │   └── speaker_repository.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── pyannote_service.py
+│   │   │   └── speaker_classifier.py
+│   │   └── value_objects/
+│   │       ├── __init__.py
+│   │       ├── speaker_id.py
+│   │       └── confidence_threshold.py
+│   ├── export/                   # File export domain
+│   │   ├── __init__.py
+│   │   ├── entities/
+│   │   │   ├── __init__.py
+│   │   │   ├── export_result.py
+│   │   │   └── export_format.py
+│   │   ├── repositories/
+│   │   │   ├── __init__.py
+│   │   │   └── export_repository.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── docx_exporter.py
+│   │   │   ├── srt_exporter.py
+│   │   │   ├── json_exporter.py
+│   │   │   └── plain_text_exporter.py
+│   │   └── value_objects/
+│   │       ├── __init__.py
+│   │       └── export_settings.py
+│   └── user/                     # User management domain
+│       ├── __init__.py
+│       ├── entities/
+│       │   ├── __init__.py
+│       │   ├── user.py
+│       │   └── user_session.py
+│       ├── repositories/
+│       │   ├── __init__.py
+│       │   └── user_repository.py
+│       ├── services/
+│       │   ├── __init__.py
+│       │   ├── user_service.py
+│       │   └── session_manager.py
+│       └── value_objects/
+│           ├── __init__.py
+│           ├── telegram_user_id.py
+│           └── user_preferences.py
+├── infrastructure/               # Инфраструктурный слой
+│   ├── __init__.py
+│   ├── database/                 # Доступ к БД
+│   │   ├── __init__.py
+│   │   ├── connection.py
+│   │   ├── models/               # SQLAlchemy модели
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_model.py
+│   │   │   ├── transcription_model.py
+│   │   │   ├── user_model.py
+│   │   │   └── export_model.py
+│   │   └── repositories/         # Реализации репозиториев
+│   │       ├── __init__.py
+│   │       ├── sql_audio_repository.py
+│   │       ├── sql_transcription_repository.py
+│   │       ├── sql_user_repository.py
+│   │       └── sql_export_repository.py
+│   ├── storage/                  # Файловое хранилище
+│   │   ├── __init__.py
+│   │   ├── nats_storage.py
+│   │   └── local_storage.py
+│   ├── messaging/                # Очереди сообщений
+│   │   ├── __init__.py
+│   │   ├── nats_client.py
+│   │   ├── publishers/
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_publisher.py
+│   │   │   └── transcription_publisher.py
+│   │   └── subscribers/
+│   │       ├── __init__.py
+│   │       ├── audio_subscriber.py
+│   │       └── transcription_subscriber.py
+│   ├── cache/                    # Кэширование
+│   │   ├── __init__.py
+│   │   ├── redis_client.py
+│   │   └── cache_service.py
+│   ├── monitoring/               # Мониторинг и логирование
+│   │   ├── __init__.py
+│   │   ├── metrics.py
+│   │   ├── logging_config.py
+│   │   └── health_checks.py
+│   └── external/                 # Внешние интеграции
+│       ├── __init__.py
+│       ├── telegram_api.py
+│       ├── ai_models/
+│       │   ├── __init__.py
+│       │   ├── whisper_client.py
+│       │   └── pyannote_client.py
+│       └── file_converters/
+│           ├── __init__.py
+│           └── ffmpeg_converter.py
+├── application/                  # Слой приложения
+│   ├── __init__.py
+│   ├── commands/                 # CQRS Commands
+│   │   ├── __init__.py
+│   │   ├── process_audio_command.py
+│   │   ├── transcribe_command.py
+│   │   ├── diarize_command.py
+│   │   └── export_command.py
+│   ├── queries/                  # CQRS Queries
+│   │   ├── __init__.py
+│   │   ├── get_transcription_query.py
+│   │   ├── get_user_history_query.py
+│   │   └── get_export_status_query.py
+│   ├── handlers/                 # Command/Query handlers
+│   │   ├── __init__.py
+│   │   ├── audio_handler.py
+│   │   ├── transcription_handler.py
+│   │   ├── diarization_handler.py
+│   │   └── export_handler.py
+│   ├── dto/                      # Data Transfer Objects
+│   │   ├── __init__.py
+│   │   ├── audio_dto.py
+│   │   ├── transcription_dto.py
+│   │   ├── diarization_dto.py
+│   │   └── export_dto.py
+│   └── services/                 # Application Services
+│       ├── __init__.py
+│       ├── orchestration_service.py
+│       ├── notification_service.py
+│       └── validation_service.py
+├── presentation/                 # Слой представления
+│   ├── __init__.py
+│   ├── telegram_bot/             # Telegram Bot
+│   │   ├── __init__.py
+│   │   ├── bot.py
+│   │   ├── handlers/
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_handlers.py
+│   │   │   ├── command_handlers.py
+│   │   │   └── callback_handlers.py
+│   │   ├── dialogs/              # aiogram-dialog
+│   │   │   ├── __init__.py
+│   │   │   ├── main_dialog.py
+│   │   │   ├── settings_dialog.py
+│   │   │   └── history_dialog.py
+│   │   ├── keyboards/
+│   │   │   ├── __init__.py
+│   │   │   └── inline_keyboards.py
+│   │   └── middlewares/
+│   │       ├── __init__.py
+│   │       ├── auth_middleware.py
+│   │       └── rate_limit_middleware.py
+│   ├── web_api/                  # FastAPI REST API
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   ├── audio.py
+│   │   │   ├── transcription.py
+│   │   │   ├── diarization.py
+│   │   │   ├── export.py
+│   │   │   └── health.py
+│   │   ├── dependencies/
+│   │   │   ├── __init__.py
+│   │   │   ├── database.py
+│   │   │   └── auth.py
+│   │   └── middleware/
+│   │       ├── __init__.py
+│   │       ├── cors.py
+│   │       └── logging.py
+│   └── webapp/                   # Telegram WebApp
+│       ├── static/
+│       │   ├── css/
+│       │   ├── js/
+│       │   └── assets/
+│       ├── templates/
+│       │   ├── index.html
+│       │   ├── player.html
+│       │   └── editor.html
+│       └── api/
+│           ├── __init__.py
+│           └── webapp_api.py
+├── shared/                       # Общие компоненты
+│   ├── __init__.py
+│   ├── exceptions/               # Кастомные исключения
+│   │   ├── __init__.py
+│   │   ├── domain_exceptions.py
+│   │   ├── application_exceptions.py
+│   │   └── infrastructure_exceptions.py
+│   ├── types/                    # Общие типы
+│   │   ├── __init__.py
+│   │   ├── identifiers.py
+│   │   └── common_types.py
+│   ├── utils/                    # Утилиты
+│   │   ├── __init__.py
+│   │   ├── datetime_utils.py
+│   │   ├── file_utils.py
+│   │   └── validation_utils.py
+│   └── constants/                # Константы
+│       ├── __init__.py
+│       ├── audio_constants.py
+│       ├── api_constants.py
+│       └── error_codes.py
+├── config/                       # Конфигурация
+│   ├── __init__.py
+│   ├── settings.py               # dynaconf настройки
+│   ├── database_config.py
+│   ├── redis_config.py
+│   ├── nats_config.py
+│   └── logging_config.yaml
+├── migrations/                   # Миграции БД
+│   ├── __init__.py
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+└── tests/                        # Тесты
+    ├── __init__.py
+    ├── unit/                     # Unit тесты
+    │   ├── domains/
+    │   ├── application/
+    │   └── infrastructure/
+    ├── integration/              # Интеграционные тесты
+    │   ├── database/
+    │   ├── messaging/
+    │   └── external/
+    ├── functional/               # Функциональные тесты
+    │   ├── telegram_bot/
+    │   └── web_api/
+    ├── fixtures/                 # Тестовые данные
+    │   ├── audio_files/
+    │   └── expected_results/
+    └── conftest.py              # pytest конфигурация
+
 
 ## Нефункциональные требования
 
