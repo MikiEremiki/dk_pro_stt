@@ -1,0 +1,3 @@
+"""
+Infrastructure integration tests package.
+"""
