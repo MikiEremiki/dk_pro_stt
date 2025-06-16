@@ -1,0 +1,29 @@
+[default]
+project_name = "Audio Transcription Bot"
+debug = false
+environment = "development"
+api_host = "0.0.0.0"
+api_port = 8000
+
+# Limits
+max_file_size_mb = 200
+max_concurrent_tasks = 5
+
+# Features
+enable_diarization = true
+enable_webapp = true
+auto_delete_files = true
+auto_delete_timeout_hours = 24
+
+# AI Models
+whisper_model_size = "large-v3"
+model_cache_dir = "./models"
+
+[development]
+debug = true
+log_level = "DEBUG"
+
+[production]
+debug = false
+environment = "production"
+log_level = "INFO"

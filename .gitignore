@@ -47,6 +47,7 @@ venv.bak/
 
 # Project specific
 .env
+.secrets.toml
 *.log
 data/
 models/

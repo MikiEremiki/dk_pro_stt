@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 
-from .config.settings import settings
+from .config.settings import config
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    debug=settings.DEBUG,
+    title=config.PROJECT_NAME,
+    debug=config.DEBUG,
 )
 
 
@@ -16,10 +16,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "src.main:app",
-        host=settings.API_HOST,
-        port=settings.API_PORT,
-        reload=settings.DEBUG,
+        host=config.API_HOST,
+        port=config.API_PORT,
+        reload=config.DEBUG,
     )

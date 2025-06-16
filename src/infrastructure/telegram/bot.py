@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 
-from config.settings import settings
+from src.config.settings import config
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,13 @@ async def setup_bot_commands(bot: Bot):
 async def main():
     """Start the Telegram bot."""
     logger.info("Bot started")
-    
-    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+
+    bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher()
-    
+
     # Setup commands
     await setup_bot_commands(bot)
-    
+
     # Start polling
     try:
         await dp.start_polling(bot)
@@ -37,5 +37,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    
+
     asyncio.run(main())
