@@ -26,19 +26,15 @@ class UserRepository(ABC):
         pass
 
 
-class UserSettingsRepository(ABC):
-    @abstractmethod
+class UserSettingsRepository:
     async def save(self, settings: UserSettings) -> UserSettings:
         pass
 
-    @abstractmethod
     async def get_by_user_id(self, user_id: int) -> Optional[UserSettings]:
         pass
 
-    @abstractmethod
     async def update(self, settings: UserSettings) -> UserSettings:
         pass
 
-    @abstractmethod
     async def delete(self, user_id: int) -> None:
         pass
